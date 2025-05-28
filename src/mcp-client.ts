@@ -26,7 +26,7 @@ export class MCPClient {
         // For SSH server, we'll use the mcp-server-ssh
         transport = new StdioClientTransport({
           command: 'npx',
-          args: ['-y', '@dotvignesh/mcp-server-ssh'],
+          args: ['-y', '@shaike/mcp-ssh'],
           env: {
             ...process.env,
             SSH_HOST: serverConfig.config.host,

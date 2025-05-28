@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Telegram bot that integrates with MCP (Model Context Protocol) servers to execute commands remotely with user confirmation. The main feature is integration with mcp-server-ssh for executing bash commands on remote servers.
+This is a Telegram bot that allows secure SSH command execution on remote servers with user confirmation. It uses the ssh2 library for direct SSH connections and includes natural language command understanding.
 
 ## Commands
 
@@ -41,10 +41,10 @@ npm install --save-dev jest @types/jest ts-jest
    - Manages user sessions and command confirmations
    - Implements security through confirmation flow
 
-2. **MCP Client** (`src/mcp-client.ts`)
-   - Manages connections to MCP servers
-   - Uses `@modelcontextprotocol/sdk` for communication
-   - Specifically configured for mcp-server-ssh integration
+2. **SSH Client** (`src/ssh-client.ts`)
+   - Manages direct SSH connections using ssh2 library
+   - Handles command execution and output streaming
+   - Supports both password and key-based authentication
 
 3. **Command Parser** (`src/command-parser.ts`)
    - Natural language understanding for bash commands
@@ -60,7 +60,7 @@ npm install --save-dev jest @types/jest ts-jest
 
 1. **Session Management**: Each user has a session tracking their active server and pending confirmations
 2. **Command Confirmation**: All bash commands require explicit user confirmation before execution
-3. **Server Abstraction**: MCP servers are abstracted to allow future support for different server types
+3. **Server Configuration**: SSH servers can be configured via JSON file or environment variables
 4. **Natural Language Processing**: Basic NLP for converting user intent to bash commands
 
 ### Security Considerations
@@ -72,7 +72,7 @@ npm install --save-dev jest @types/jest ts-jest
 
 ## Development Guidelines
 
-1. **Adding New MCP Server Types**: Extend the switch statement in `mcp-client.ts` connectToServer method
+1. **Adding New SSH Servers**: Add server configuration to the JSON file or create programmatically
 2. **Command Parser Enhancement**: Add new patterns to `bashKeywords` and `inferCommand` in `command-parser.ts`
 3. **Bot Commands**: New Telegram commands should be added to both the handler and setMyCommands in `bot.ts`
 
@@ -86,6 +86,7 @@ Required environment variables:
 
 ## Common Issues
 
-1. **MCP Connection Failures**: Check that npx can download and run `@dotvignesh/mcp-server-ssh`
+1. **SSH Connection Failures**: Verify SSH credentials and ensure the server allows SSH connections
 2. **Command Not Found**: The command parser might need new patterns for specific command types
 3. **Long Output**: Bot automatically splits messages over 4000 characters
+4. **Key Authentication**: Ensure private key file has correct permissions (600)

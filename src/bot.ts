@@ -1,19 +1,19 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { config, loadMCPServers, saveMCPServers } from './config';
-import { MCPClient } from './mcp-client';
+import { SimpleSSHClient } from './ssh-client';
 import { CommandParser } from './command-parser';
-import { UserSession, MCPServerConfig, CommandConfirmation } from './types';
+import { UserSession, MCPServerConfig, CommandConfirmation, SSHConfig } from './types';
 
 export class TelegramMCPBot {
   private bot: TelegramBot;
-  private mcpClient: MCPClient;
+  private sshClient: SimpleSSHClient;
   private commandParser: CommandParser;
   private userSessions: Map<number, UserSession> = new Map();
   private mcpServers: MCPServerConfig[] = [];
 
   constructor() {
     this.bot = new TelegramBot(config.telegramBotToken, { polling: true });
-    this.mcpClient = new MCPClient();
+    this.sshClient = new SimpleSSHClient();
     this.commandParser = new CommandParser();
     this.mcpServers = loadMCPServers();
   }
@@ -43,9 +43,9 @@ export class TelegramMCPBot {
 
   private async initializeDefaultServer() {
     const defaultServer = this.mcpServers.find(s => s.id === 'default-ssh');
-    if (defaultServer && defaultServer.enabled) {
+    if (defaultServer && defaultServer.enabled && defaultServer.config.host) {
       try {
-        await this.mcpClient.connectToServer(defaultServer);
+        await this.sshClient.connect(defaultServer.id, defaultServer.config as SSHConfig);
         console.log('Connected to default SSH server');
       } catch (error) {
         console.error('Failed to connect to default server:', error);
@@ -138,7 +138,7 @@ export class TelegramMCPBot {
     const session = this.getOrCreateSession(userId);
     
     if (!session.activeServer) {
-      const servers = this.mcpClient.getConnectedServers();
+      const servers = this.sshClient.getConnectedServers();
       if (servers.length === 0) {
         await this.bot.sendMessage(
           chatId,
@@ -206,7 +206,7 @@ export class TelegramMCPBot {
     await this.bot.sendMessage(chatId, '⏳ Executing command...');
 
     try {
-      const result = await this.mcpClient.executeCommand(
+      const result = await this.sshClient.executeCommand(
         confirmation.serverId,
         confirmation.command
       );
@@ -238,11 +238,11 @@ export class TelegramMCPBot {
   private async handleStart(chatId: number) {
     await this.bot.sendMessage(
       chatId,
-      `🤖 *Welcome to MCP Telegram Bot!*\n\n` +
-      `I can help you execute commands on remote servers through MCP (Model Context Protocol).\n\n` +
+      `🤖 *Welcome to SSH Telegram Bot!*\n\n` +
+      `I can help you execute commands on remote servers through SSH.\n\n` +
       `*Features:*\n` +
       `• Execute bash commands with confirmation\n` +
-      `• Manage multiple MCP server connections\n` +
+      `• Manage multiple SSH server connections\n` +
       `• Natural language command understanding\n\n` +
       `Use /help to see available commands.`,
       { parse_mode: 'Markdown' }
@@ -256,7 +256,7 @@ export class TelegramMCPBot {
       `*System Commands:*\n` +
       `/start - Start the bot\n` +
       `/help - Show this help message\n` +
-      `/servers - List available MCP servers\n` +
+      `/servers - List available SSH servers\n` +
       `/connect [server] - Connect to a server\n` +
       `/disconnect - Disconnect from current server\n` +
       `/status - Show connection status\n` +
@@ -271,9 +271,9 @@ export class TelegramMCPBot {
   }
 
   private async handleListServers(chatId: number) {
-    const connected = this.mcpClient.getConnectedServers();
+    const connected = this.sshClient.getConnectedServers();
     
-    let message = '*📡 MCP Servers:*\n\n';
+    let message = '*📡 SSH Servers:*\n\n';
     
     for (const server of this.mcpServers) {
       const isConnected = connected.includes(server.id);
@@ -324,7 +324,7 @@ export class TelegramMCPBot {
     await this.bot.sendMessage(chatId, `🔄 Connecting to ${server.name}...`);
 
     try {
-      await this.mcpClient.connectToServer(server);
+      await this.sshClient.connect(serverId, server.config as SSHConfig);
       const session = this.getOrCreateSession(userId);
       session.activeServer = serverId;
       
@@ -349,7 +349,7 @@ export class TelegramMCPBot {
     const serverName = server?.name || session.activeServer;
 
     try {
-      await this.mcpClient.disconnectFromServer(session.activeServer);
+      await this.sshClient.disconnect(session.activeServer);
       session.activeServer = undefined;
       await this.bot.sendMessage(chatId, `✅ Disconnected from ${serverName}`);
     } catch (error) {
@@ -359,7 +359,7 @@ export class TelegramMCPBot {
 
   private async handleStatus(chatId: number, userId: number) {
     const session = this.getOrCreateSession(userId);
-    const connected = this.mcpClient.getConnectedServers();
+    const connected = this.sshClient.getConnectedServers();
     
     let message = '*🔍 Connection Status:*\n\n';
     

@@ -1,13 +1,13 @@
-# Telegram MCP Bot
+# Telegram SSH Bot
 
-A Telegram bot that integrates with MCP (Model Context Protocol) servers to execute commands remotely with user confirmation.
+A Telegram bot that allows secure SSH command execution on remote servers with user confirmation.
 
 ## Features
 
 - 🤖 Natural language command understanding
 - 🔐 Command confirmation before execution
-- 🌐 Multiple MCP server management
-- 🚀 SSH server integration via mcp-server-ssh
+- 🌐 Multiple SSH server management
+- 🚀 Direct SSH integration using ssh2 library
 - 💬 Interactive Telegram interface
 
 ## Setup
@@ -38,7 +38,7 @@ A Telegram bot that integrates with MCP (Model Context Protocol) servers to exec
 
 - `/start` - Start the bot
 - `/help` - Show help message
-- `/servers` - List available MCP servers
+- `/servers` - List available SSH servers
 - `/connect [server]` - Connect to a specific server
 - `/disconnect` - Disconnect from current server
 - `/status` - Show connection status
@@ -64,7 +64,7 @@ All commands require confirmation before execution for security.
 ## Architecture
 
 - `src/bot.ts` - Main bot logic and Telegram handlers
-- `src/mcp-client.ts` - MCP client for server connections
+- `src/ssh-client.ts` - SSH client for server connections
 - `src/command-parser.ts` - Natural language command parsing
 - `src/config.ts` - Configuration management
 - `src/types.ts` - TypeScript type definitions
