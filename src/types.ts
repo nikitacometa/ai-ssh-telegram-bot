@@ -26,4 +26,10 @@ export interface UserSession {
   userId: number;
   activeServer?: string;
   pendingConfirmation?: CommandConfirmation;
+  commandHistory: string[];
+  lastActivity: number;
+  preferences: {
+    quickCommands: boolean;
+    verboseOutput: boolean;
+  };
 }
