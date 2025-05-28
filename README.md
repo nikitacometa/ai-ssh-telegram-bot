@@ -9,6 +9,13 @@ A Telegram bot that allows secure SSH command execution on remote servers with u
 - 🌐 Multiple SSH server management
 - 🚀 Direct SSH integration using ssh2 library
 - 💬 Interactive Telegram interface
+- ⚡ Typing indicators and loading animations
+- 📊 Progress bars for connection status
+- 🎮 Quick command buttons
+- 📜 Command history with replay
+- ⚙️ User preferences and settings
+- 🎯 Smart error messages with suggestions
+- 🎨 Beautiful formatted outputs
 
 ## Setup
 
@@ -48,11 +55,21 @@ A Telegram bot that allows secure SSH command execution on remote servers with u
 
 You can execute commands in several ways:
 
-1. **Direct commands**: `"ls -la"`
-2. **Natural language**: "show me the files"
-3. **Explicit execution**: "run df -h"
+1. **Quick Command Buttons**: Use the emoji keyboard for common tasks
+2. **Direct commands**: Type commands like `ls -la`
+3. **Natural language**: "show me the files" or "check disk space"
+4. **Command history**: Replay previous commands with one click
 
 All commands require confirmation before execution for security.
+
+### User Experience
+
+- **Typing indicators** show when the bot is processing
+- **Progress bars** display connection status
+- **Loading animations** during command execution
+- **Smart suggestions** when commands fail
+- **Interactive menus** for all operations
+- **Persistent command history** per user
 
 ## Development
 
