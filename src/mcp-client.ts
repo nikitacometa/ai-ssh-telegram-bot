@@ -66,14 +66,17 @@ export class MCPClient {
 
     try {
       // Call the SSH execute tool
-      const result = await client.callTool('ssh_command', {
-        command: command
+      const result = await client.callTool({
+        name: 'ssh_command',
+        arguments: {
+          command: command
+        }
       });
 
-      if (result.content && result.content.length > 0) {
+      if (result.content && Array.isArray(result.content) && result.content.length > 0) {
         const content = result.content[0];
-        if (content.type === 'text') {
-          return content.text;
+        if (typeof content === 'object' && content !== null && 'type' in content && content.type === 'text' && 'text' in content) {
+          return content.text as string;
         }
       }
       
