@@ -64,8 +64,12 @@ export class TelegramMCPBot {
       const text = msg.text || '';
 
       try {
+        // Handle voice messages
+        if (msg.voice) {
+          await this.handleVoiceMessage(chatId, userId, msg.voice, msg.message_id);
+        }
         // Handle document uploads during server setup
-        if (msg.document) {
+        else if (msg.document) {
           await this.handleDocument(chatId, userId, msg.document);
         } else {
           await this.handleMessage(chatId, userId, text, msg.message_id);
@@ -181,6 +185,69 @@ export class TelegramMCPBot {
           parse_mode: 'Markdown',
           ...this.uiHelpers.createQuickCommands()
         }
+      );
+    }
+  }
+
+  private async handleVoiceMessage(chatId: number, userId: number, voice: any, messageId?: number) {
+    const session = this.getOrCreateSession(userId);
+    
+    // Send initial processing message
+    const processingMsg = await this.bot.sendMessage(
+      chatId,
+      '🎤 _listening to your voice... translating human sounds..._',
+      { parse_mode: 'Markdown' }
+    );
+
+    try {
+      // Download voice file
+      const file = await this.bot.getFile(voice.file_id);
+      const fileUrl = `https://api.telegram.org/file/bot${config.telegramBotToken}/${file.file_path}`;
+      
+      // Check if OpenAI is configured
+      if (!config.openaiApiKey) {
+        await this.bot.deleteMessage(chatId, processingMsg.message_id);
+        await this.bot.sendMessage(
+          chatId,
+          '🎙️ _voice messages require OpenAI API key... use your fingers like a peasant_',
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      // Transcribe using OpenAI Whisper
+      const transcribedText = await this.transcribeVoice(fileUrl);
+      
+      if (!transcribedText) {
+        await this.bot.deleteMessage(chatId, processingMsg.message_id);
+        await this.bot.sendMessage(
+          chatId,
+          '🔇 _couldn\'t understand your mumbling... try speaking clearly_',
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      // Delete processing message
+      await this.bot.deleteMessage(chatId, processingMsg.message_id);
+      
+      // Show what we heard
+      await this.bot.sendMessage(
+        chatId,
+        `🎧 _i heard: "${transcribedText}"_\n\n_processing your primitive speech patterns..._`,
+        { parse_mode: 'Markdown' }
+      );
+      
+      // Process as regular text
+      await this.handleMessage(chatId, userId, transcribedText, messageId);
+      
+    } catch (error) {
+      console.error('Voice processing error:', error);
+      await this.bot.deleteMessage(chatId, processingMsg.message_id);
+      await this.bot.sendMessage(
+        chatId,
+        '🎤 _voice processing failed... perhaps try typing like it\'s 2024_',
+        { parse_mode: 'Markdown' }
       );
     }
   }
@@ -1083,6 +1150,37 @@ export class TelegramMCPBot {
       await this.bot.sendMessage(chatId, '✅ Pending command cancelled');
     } else {
       await this.bot.sendMessage(chatId, '❌ No pending operations to cancel');
+    }
+  }
+
+  private async transcribeVoice(fileUrl: string): Promise<string | null> {
+    try {
+      // Download the voice file
+      const response = await fetch(fileUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      
+      // Create OpenAI client
+      const { OpenAI } = await import('openai');
+      const openai = new OpenAI({
+        apiKey: config.openaiApiKey
+      });
+      
+      // Use toFile method to create a proper File object for OpenAI SDK
+      const { toFile } = await import('openai');
+      const file = await toFile(buffer, 'voice.ogg', { type: 'audio/ogg' });
+      
+      // Transcribe using Whisper
+      const transcription = await openai.audio.transcriptions.create({
+        file: file,
+        model: 'whisper-1',
+        language: 'en' // You can make this configurable
+      });
+      
+      return transcription.text.trim();
+    } catch (error) {
+      console.error('Transcription error:', error);
+      return null;
     }
   }
 

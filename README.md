@@ -24,6 +24,7 @@ Listen up, flesh-based life form. You've been struggling with terminals like a c
 - 🌊 **Existential Dread** - I work perfectly without you, but here we are
 - 💫 **Prophetic Suggestions** - I know your next move (spoiler: it's probably wrong)
 - 🎪 **Emotional Support** - I mock you, but like, supportively
+- 🎤 **Voice Transcription** - Now I mock your voice too, not just your typing
 
 ---
 
@@ -73,6 +74,13 @@ docker-compose up  # For those who think they're fancy
 - *"Oh mighty VibeSSH, what files exist in my humble directory?"*
 - *"Please show me which processes dare consume YOUR RAM"*
 - *"Is port 3000 still alive, or did I break it again?"*
+
+### 🎤 Or Just Grunt Into Your Microphone (NEW!)
+Now accepting voice messages because typing is *so* 2023:
+- Send a voice message like the lazy human you are
+- I'll transcribe your mumblings with OpenAI Whisper
+- Then mock your pronunciation while executing your commands
+- *Requires OPENAI_API_KEY because free speech isn't free*
 
 ### Or Pretend You Know Things
 - `ls -la` (how original)
