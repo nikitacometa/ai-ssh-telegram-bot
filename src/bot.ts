@@ -64,7 +64,12 @@ export class TelegramMCPBot {
       const text = msg.text || '';
 
       try {
-        await this.handleMessage(chatId, userId, text);
+        // Handle document uploads during server setup
+        if (msg.document) {
+          await this.handleDocument(chatId, userId, msg.document);
+        } else {
+          await this.handleMessage(chatId, userId, text, msg.message_id);
+        }
       } catch (error) {
         console.error('Error handling message:', error);
         await this.bot.sendMessage(chatId, '❌ An error occurred. Please try again.');
@@ -90,15 +95,29 @@ export class TelegramMCPBot {
     });
   }
 
-  private async handleMessage(chatId: number, userId: number, text: string) {
-    const session = this.getOrCreateSession(userId);
+  private async handleMessage(chatId: number, userId: number, text: string, messageId?: number) {
+    let session = this.getOrCreateSession(userId);
     
     // Update last activity
     session.lastActivity = Date.now();
     
-    // Handle server setup flow
+    // Handle server setup flow - this must come first to prevent command parsing
     if (session.serverSetup) {
-      await this.handleServerSetupStep(chatId, userId, text);
+      console.log(`[DEBUG] Server setup active - step: ${session.serverSetup.step}, text: ${text}`);
+      
+      // Allow /cancel command during setup
+      if (text.trim().toLowerCase() === '/cancel') {
+        session.serverSetup = undefined;
+        await this.bot.sendMessage(
+          chatId,
+          '❌ Server setup cancelled. What would you like to do?',
+          this.uiHelpers.createQuickCommands()
+        );
+        return;
+      }
+      
+      // Don't process any other commands during server setup
+      await this.handleServerSetupStep(chatId, userId, text, messageId);
       return;
     }
     
@@ -126,7 +145,9 @@ export class TelegramMCPBot {
       return;
     }
     
-    const parsed = await this.commandParser.parse(text);
+    session = this.getOrCreateSession(userId);
+    const parsed = await this.commandParser.parse(text, session.preferences.aiSuggestions);
+    console.log(`[DEBUG] Command parser result for "${text}": type=${parsed.type}, command=${parsed.command}`);
 
     if (parsed.type === 'system') {
       await this.handleSystemCommand(chatId, userId, parsed.command!);
@@ -160,6 +181,50 @@ export class TelegramMCPBot {
           parse_mode: 'Markdown',
           ...this.uiHelpers.createQuickCommands()
         }
+      );
+    }
+  }
+
+  private async handleDocument(chatId: number, userId: number, document: any) {
+    const session = this.getOrCreateSession(userId);
+    
+    // Only handle documents during private key setup
+    if (!session.serverSetup || session.serverSetup.step !== 'private_key') {
+      await this.bot.sendMessage(
+        chatId,
+        '📎 I received a file, but I\'m not expecting one right now. ' +
+        'Files are only accepted when setting up SSH private key authentication.'
+      );
+      return;
+    }
+    
+    try {
+      // Download the file
+      const file = await this.bot.getFile(document.file_id);
+      const fileUrl = `https://api.telegram.org/file/bot${config.telegramBotToken}/${file.file_path}`;
+      
+      // Fetch file contents
+      const response = await fetch(fileUrl);
+      const privateKeyContent = await response.text();
+      
+      // Store the private key content
+      session.serverSetup.serverData.privateKey = privateKeyContent;
+      session.serverSetup.step = 'confirm';
+      
+      await this.bot.sendMessage(
+        chatId,
+        '✅ Private key file received and stored securely!\n\n' +
+        '_The key content will be used for authentication._',
+        { parse_mode: 'Markdown' }
+      );
+      
+      // Show confirmation
+      await this.showServerConfirmation(chatId, userId);
+    } catch (error) {
+      console.error('Error handling document:', error);
+      await this.bot.sendMessage(
+        chatId,
+        '❌ Failed to process the private key file. Please try again or enter the file path manually.'
       );
     }
   }
@@ -367,7 +432,7 @@ export class TelegramMCPBot {
         break;
         
       case data === 'add_server':
-        await this.handleAddServerStart(chatId, userId);
+        await this.handleAddServer(chatId, userId);
         break;
         
       case data === 'refresh_servers':
@@ -404,6 +469,40 @@ export class TelegramMCPBot {
       case data.startsWith('setup_'):
         const setupAction = data.replace('setup_', '');
         await this.handleServerSetupAction(chatId, userId, setupAction);
+        break;
+        
+      case data === 'toggle_quick_commands':
+        session.preferences.quickCommands = !session.preferences.quickCommands;
+        await this.handleSettings(chatId, userId);
+        break;
+        
+      case data === 'toggle_verbose':
+        session.preferences.verboseOutput = !session.preferences.verboseOutput;
+        await this.handleSettings(chatId, userId);
+        break;
+        
+      case data === 'toggle_ai_suggestions':
+        session.preferences.aiSuggestions = !session.preferences.aiSuggestions;
+        await this.handleSettings(chatId, userId);
+        break;
+        
+      case data === 'clear_history':
+        session.commandHistory = [];
+        await this.bot.sendMessage(chatId, '✅ Command history cleared!');
+        await this.handleSettings(chatId, userId);
+        break;
+        
+      case data === 'reset_connection':
+        if (session.activeServer) {
+          await this.sshClient.disconnect(session.activeServer);
+          session.activeServer = undefined;
+        }
+        await this.bot.sendMessage(chatId, '✅ Connection reset!');
+        await this.handleSettings(chatId, userId);
+        break;
+        
+      case data === 'back_to_main':
+        await this.bot.sendMessage(chatId, 'What would you like to do?', this.uiHelpers.createQuickCommands());
         break;
     }
   }
@@ -598,6 +697,9 @@ export class TelegramMCPBot {
       clearInterval(animationInterval);
       await this.bot.deleteMessage(chatId, loadingMsg.message_id);
 
+      // Store the command output for context
+      session.lastCommandOutput = result;
+
       // Format and send result
       const formattedOutput = this.uiHelpers.formatCommandOutput(result);
       
@@ -618,6 +720,24 @@ export class TelegramMCPBot {
       if (executionTime > 5000) timeEmoji = '🐢'; // turtle for slow
       else if (executionTime > 1000) timeEmoji = '🐇'; // rabbit for medium
       
+      // Generate next command suggestions
+      const nextSuggestions = await this.generateNextCommandSuggestions(confirmation.command, session.lastCommandOutput || '');
+      
+      // Create suggestion buttons
+      const suggestionButtons = nextSuggestions.map(cmd => ({
+        text: `💫 ${cmd}`,
+        callback_data: `suggest_${Buffer.from(cmd).toString('base64').substring(0, 60)}`
+      }));
+      
+      const keyboard = [
+        suggestionButtons,
+        [
+          { text: '🔄 Again!', callback_data: `history_${Buffer.from(confirmation.command).toString('base64').substring(0, 60)}` },
+          { text: '📚 History', callback_data: 'show_history' }
+        ],
+        [{ text: '🏠 Home', callback_data: 'show_quick_commands' }]
+      ];
+      
       await this.bot.sendMessage(
         chatId,
         `${randomSuccess}\n\n` +
@@ -627,13 +747,7 @@ export class TelegramMCPBot {
         {
           parse_mode: 'Markdown',
           reply_markup: {
-            inline_keyboard: [
-              [
-                { text: '🔄 Again!', callback_data: `history_${Buffer.from(confirmation.command).toString('base64').substring(0, 60)}` },
-                { text: '📚 History', callback_data: 'show_history' }
-              ],
-              [{ text: '🏠 Home', callback_data: 'show_quick_commands' }]
-            ]
+            inline_keyboard: keyboard
           }
         }
       );
@@ -675,6 +789,7 @@ export class TelegramMCPBot {
       'first_name' in chat ? chat.first_name : undefined
     ).catch(() => undefined);
     
+    const userId = chatId.toString();
     await this.bot.sendChatAction(chatId, 'typing');
     
     await this.uiHelpers.sendWithTyping(
@@ -698,14 +813,46 @@ export class TelegramMCPBot {
       }
     );
 
-    // Show quick commands
-    setTimeout(() => {
-      this.bot.sendMessage(
-        chatId,
-        '👆 Use these quick commands or type your own:',
-        this.uiHelpers.createQuickCommands()
-      );
-    }, 1500);
+    // Auto-connect to default server if SSH config exists in env
+    const defaultSSH = config.defaultSSHConfig;
+    if (defaultSSH.host && defaultSSH.username && (defaultSSH.password || defaultSSH.privateKeyPath)) {
+      setTimeout(async () => {
+        await this.bot.sendMessage(
+          chatId,
+          '🌊 _connecting to your server... just vibing..._',
+          { parse_mode: 'Markdown' }
+        );
+        
+        try {
+          const servers = this.mcpServers;
+          const defaultServer = servers.find((s: MCPServerConfig) => s.id === 'default-ssh');
+          
+          if (defaultServer) {
+            await this.connectToServer(chatId, Number(userId), defaultServer.id);
+            await this.bot.sendMessage(
+              chatId,
+              '✨ _connected... now we can pretend to do things_',
+              { parse_mode: 'Markdown' }
+            );
+          }
+        } catch (error) {
+          await this.bot.sendMessage(
+            chatId,
+            '🍃 _couldn\'t connect... servers need their space sometimes_',
+            { parse_mode: 'Markdown' }
+          );
+        }
+      }, 2000);
+    } else {
+      // Show quick commands if no auto-connect
+      setTimeout(() => {
+        this.bot.sendMessage(
+          chatId,
+          '🌙 _no servers configured... you could add one, or just exist_',
+          this.uiHelpers.createQuickCommands()
+        );
+      }, 1500);
+    }
   }
 
   private async handleHelp(chatId: number) {
@@ -939,6 +1086,42 @@ export class TelegramMCPBot {
     }
   }
 
+  private async generateNextCommandSuggestions(command: string, output: string): Promise<string[]> {
+    const suggestions: string[] = [];
+    
+    // Context-based suggestions
+    if (command.includes('ls') || command.includes('dir')) {
+      suggestions.push('ls -la', 'cd ..', 'pwd');
+    } else if (command.includes('cd')) {
+      suggestions.push('ls -la', 'pwd', 'cd ..');
+    } else if (command.includes('cat') || command.includes('tail')) {
+      suggestions.push('grep -i error', 'tail -n 20', 'wc -l');
+    } else if (command.includes('ps') || command.includes('top')) {
+      suggestions.push('ps aux | grep', 'kill -9', 'htop');
+    } else if (command.includes('df')) {
+      suggestions.push('du -sh *', 'mount', 'lsblk');
+    } else if (command.includes('git')) {
+      suggestions.push('git status', 'git log --oneline', 'git diff');
+    } else if (command.includes('docker')) {
+      suggestions.push('docker ps -a', 'docker logs', 'docker-compose ps');
+    } else if (command.includes('systemctl')) {
+      suggestions.push('systemctl status', 'journalctl -u', 'systemctl list-units');
+    } else if (command.includes('apt') || command.includes('yum')) {
+      suggestions.push('apt update', 'apt list --upgradable', 'dpkg -l');
+    } else {
+      // Default suggestions
+      suggestions.push('ls -la', 'pwd', 'whoami');
+    }
+    
+    // If output contains errors, suggest debugging commands
+    if (output && (output.includes('error') || output.includes('Error') || output.includes('failed'))) {
+      suggestions.push('dmesg | tail', 'journalctl -xe', 'systemctl status');
+    }
+    
+    // Return unique suggestions, limited to 3
+    return [...new Set(suggestions)].slice(0, 3);
+  }
+
   private getOrCreateSession(userId: number): UserSession {
     if (!this.userSessions.has(userId)) {
       this.userSessions.set(userId, {
@@ -949,7 +1132,8 @@ export class TelegramMCPBot {
         lastActivity: Date.now(),
         preferences: {
           quickCommands: true,
-          verboseOutput: false
+          verboseOutput: false,
+          aiSuggestions: true
         },
         serverSetup: undefined,
         activeCommands: new Map()
@@ -992,7 +1176,8 @@ export class TelegramMCPBot {
       `⚙️ **Settings**\n\n` +
       `Customize your experience:\n\n` +
       `🎯 **Quick Commands**: ${session.preferences.quickCommands ? 'Enabled ✅' : 'Disabled ❌'}\n` +
-      `📝 **Verbose Output**: ${session.preferences.verboseOutput ? 'Enabled ✅' : 'Disabled ❌'}\n\n` +
+      `📝 **Verbose Output**: ${session.preferences.verboseOutput ? 'Enabled ✅' : 'Disabled ❌'}\n` +
+      `🤖 **AI Suggestions**: ${session.preferences.aiSuggestions ? 'Enabled ✅' : 'Disabled ❌'}\n\n` +
       `Active Server: ${session.activeServer ? this.mcpServers.find(s => s.id === session.activeServer)?.name : 'None'}`,
       {
         parse_mode: 'Markdown',
@@ -1008,6 +1193,12 @@ export class TelegramMCPBot {
               {
                 text: `${session.preferences.verboseOutput ? '🔇' : '🔊'} Toggle Verbose Output`,
                 callback_data: 'toggle_verbose'
+              }
+            ],
+            [
+              {
+                text: `${session.preferences.aiSuggestions ? '🚫' : '🤖'} Toggle AI Suggestions`,
+                callback_data: 'toggle_ai_suggestions'
               }
             ],
             [
@@ -1127,6 +1318,8 @@ export class TelegramMCPBot {
       serverData: {}
     };
     
+    console.log(`[DEBUG] Server setup initialized for user ${userId} - step: ${session.serverSetup.step}`);
+    
     await this.bot.sendMessage(
       chatId,
       `➕ **Add New SSH Server**\n\n` +
@@ -1147,23 +1340,67 @@ export class TelegramMCPBot {
     );
   }
 
-  private async handleServerSetupStep(chatId: number, userId: number, text: string) {
+  private async handleServerSetupStep(chatId: number, userId: number, text: string, messageId?: number) {
     const session = this.getOrCreateSession(userId);
     const setup = session.serverSetup!;
     
+    console.log(`[DEBUG] handleServerSetupStep - step: ${setup.step}, text: "${text}", trimmed: "${text.trim()}"`);
+    
     switch (setup.step) {
       case 'hostname':
-        if (!text.trim()) {
+        const hostname = text.trim();
+        if (!hostname) {
           await this.bot.sendMessage(chatId, '❌ Please enter a valid hostname or IP address.');
           return;
         }
-        setup.serverData.host = text.trim();
-        setup.step = 'port';
+        
+        // Basic validation for hostname/IP
+        const ipPattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+        const hostnamePattern = /^[a-zA-Z0-9][a-zA-Z0-9-._]*[a-zA-Z0-9]$/;
+        
+        if (!ipPattern.test(hostname) && !hostnamePattern.test(hostname)) {
+          await this.bot.sendMessage(
+            chatId, 
+            '❌ Invalid hostname or IP address. Please enter a valid IP (e.g., 192.168.1.100) or hostname (e.g., server.example.com).'
+          );
+          return;
+        }
+        
+        setup.serverData.host = hostname;
+        setup.step = 'name';
         
         await this.bot.sendMessage(
           chatId,
           `✅ Hostname set: \`${setup.serverData.host}\`\n\n` +
-          `**Step 2/6:** Enter the SSH port (press Enter for default 22):`,
+          `**Step 2/6:** Enter a friendly name for this server:\n\n` +
+          `Examples:\n` +
+          `• \`Production Server\`\n` +
+          `• \`Dev Machine\`\n` +
+          `• \`My VPS\``,
+          { 
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [[
+                { text: '❌ Cancel Setup', callback_data: 'setup_cancel' }
+              ]]
+            }
+          }
+        );
+        break;
+        
+      case 'name':
+        const serverName = text.trim();
+        if (!serverName) {
+          await this.bot.sendMessage(chatId, '❌ Please enter a valid name for the server.');
+          return;
+        }
+        setup.serverData.name = serverName;
+        setup.step = 'port';
+        
+        await this.bot.sendMessage(
+          chatId,
+          `✅ Server name set: \`${setup.serverData.name}\`\n\n` +
+          `**Step 3/6:** Enter the SSH port (send "22" or press the button for default):`,
           { 
             parse_mode: 'Markdown',
             reply_markup: {
@@ -1177,18 +1414,23 @@ export class TelegramMCPBot {
         break;
         
       case 'port':
-        const port = parseInt(text.trim());
-        if (isNaN(port) || port < 1 || port > 65535) {
-          await this.bot.sendMessage(chatId, '❌ Please enter a valid port number (1-65535).');
-          return;
+        // Handle empty input as default port 22
+        if (!text.trim() || text.trim().toLowerCase() === 'enter') {
+          setup.serverData.port = 22;
+        } else {
+          const port = parseInt(text.trim());
+          if (isNaN(port) || port < 1 || port > 65535) {
+            await this.bot.sendMessage(chatId, '❌ Please enter a valid port number (1-65535), or press the "Use Default" button.');
+            return;
+          }
+          setup.serverData.port = port;
         }
-        setup.serverData.port = port;
         setup.step = 'username';
         
         await this.bot.sendMessage(
           chatId,
           `✅ Port set: \`${setup.serverData.port}\`\n\n` +
-          `**Step 3/6:** Enter the username for SSH connection:`,
+          `**Step 4/6:** Enter the username for SSH connection:`,
           { 
             parse_mode: 'Markdown',
             reply_markup: {
@@ -1211,7 +1453,7 @@ export class TelegramMCPBot {
         await this.bot.sendMessage(
           chatId,
           `✅ Username set: \`${setup.serverData.username}\`\n\n` +
-          `**Step 4/6:** Choose authentication method:`,
+          `**Step 5/6:** Choose authentication method:`,
           { 
             parse_mode: 'Markdown',
             reply_markup: {
@@ -1234,9 +1476,13 @@ export class TelegramMCPBot {
         setup.step = 'confirm';
         
         // Delete the password message for security
-        try {
-          await this.bot.deleteMessage(chatId, (await this.bot.getUpdates()).pop()?.message?.message_id || 0);
-        } catch (e) {}
+        if (messageId) {
+          try {
+            await this.bot.deleteMessage(chatId, messageId);
+          } catch (e) {
+            console.error('Failed to delete password message:', e);
+          }
+        }
         
         await this.showServerConfirmation(chatId, userId);
         break;
@@ -1277,7 +1523,7 @@ export class TelegramMCPBot {
         await this.bot.sendMessage(
           chatId,
           `✅ Port set: \`22\` (default)\n\n` +
-          `**Step 3/6:** Enter the username for SSH connection:`,
+          `**Step 4/6:** Enter the username for SSH connection:`,
           { 
             parse_mode: 'Markdown',
             reply_markup: {
@@ -1312,11 +1558,14 @@ export class TelegramMCPBot {
         await this.bot.sendMessage(
           chatId,
           `🗝️ **Private Key Authentication**\n\n` +
-          `**Step 5/6:** Enter the full path to your private key file:\n\n` +
-          `Examples:\n` +
+          `**Step 5/6:** You have two options:\n\n` +
+          `**Option 1:** Upload your private key file directly (I'll read its contents)\n` +
+          `**Option 2:** Enter the full path to your private key file on the SSH server\n\n` +
+          `Path examples:\n` +
           `• \`/home/user/.ssh/id_rsa\`\n` +
           `• \`/Users/user/.ssh/id_ed25519\`\n` +
-          `• \`C:\\Users\\user\\.ssh\\id_rsa\``,
+          `• \`C:\\Users\\user\\.ssh\\id_rsa\`\n\n` +
+          `💡 _Tip: If you upload a file, I'll store its contents securely for authentication._`,
           { 
             parse_mode: 'Markdown',
             reply_markup: {
@@ -1339,11 +1588,8 @@ export class TelegramMCPBot {
     const setup = session.serverSetup!;
     const data = setup.serverData;
     
-    // Generate server name
-    data.name = `${data.username}@${data.host}`;
-    
     const authMethod = data.password ? 'Password' : 'Private Key';
-    const authValue = data.password ? '••••••••' : data.privateKeyPath;
+    const authValue = data.password ? '••••••••' : (data.privateKey ? 'Uploaded file' : data.privateKeyPath);
     
     await this.bot.sendMessage(
       chatId,
@@ -1384,7 +1630,8 @@ export class TelegramMCPBot {
           port: data.port!,
           username: data.username!,
           password: data.password,
-          privateKeyPath: data.privateKeyPath
+          privateKeyPath: data.privateKeyPath,
+          privateKey: data.privateKey
         } as SSHConfig,
         enabled: true
       };

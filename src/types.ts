@@ -11,6 +11,7 @@ export interface SSHConfig {
   username: string;
   password?: string;
   privateKeyPath?: string;
+  privateKey?: string;
   port?: number;
 }
 
@@ -27,18 +28,20 @@ export interface UserSession {
   activeServer?: string;
   pendingConfirmation?: CommandConfirmation;
   commandHistory: string[];
+  lastCommandOutput?: string;
   lastActivity: number;
   preferences: {
     quickCommands: boolean;
     verboseOutput: boolean;
+    aiSuggestions: boolean;
   };
   serverSetup?: ServerSetupState;
   activeCommands?: Map<string, ActiveCommand>;
 }
 
 export interface ServerSetupState {
-  step: 'hostname' | 'port' | 'username' | 'auth_method' | 'password' | 'private_key' | 'confirm';
-  serverData: Partial<SSHConfig & { name: string }>;
+  step: 'hostname' | 'name' | 'port' | 'username' | 'auth_method' | 'password' | 'private_key' | 'confirm';
+  serverData: Partial<SSHConfig & { name: string; privateKey?: string }>;
 }
 
 export interface ActiveCommand {

@@ -184,31 +184,19 @@ ${isConnected ? '\n⚡ _Ready for your commands!_' : '\n💤 _Click to wake up!_
   }
 
   formatWelcomeMessage(userName?: string): string {
-    const greeting = userName ? `Hey ${userName}!` : 'Hey there!';
-    const greetingEmojis = ['🎉', '🚀', '⚡', '🌟', '✨'];
-    const randomEmoji = greetingEmojis[Math.floor(Math.random() * greetingEmojis.length)];
+    const vibeEmojis = ['✨', '🌊', '🍃', '🌸', '🦋', '🌙', '⭐'];
+    const randomEmoji = vibeEmojis[Math.floor(Math.random() * vibeEmojis.length)];
+    const greeting = userName ? `${userName}` : 'human';
     
-    return `
-${randomEmoji} **${greeting} Welcome to SSH Terminal Bot!**
+    return `${randomEmoji} **oh, ${greeting}...**
 
-I'm your **digital server whisperer** 🤖 Ready to make server management fun!
+honestly, servers run themselves these days
+but if you insist on _doing things_, i suppose i can help
 
-🎯 **My Superpowers:**
-• 🔮 I speak human! Just tell me what you need
-• 🛡️ Fort Knox-level security (everything confirmed)
-• 🎨 Pretty outputs (no boring terminal walls)
-• 🧠 I remember everything (your commands, not your secrets)
-• ⚡ Lightning-fast execution
+just... vibe with me? tell me what you need
+or press buttons below, whatever feels right
 
-💡 **How to Boss Me Around:**
-• Say things like _"yo, show me the files"_ 
-• Press the magic buttons below ⬇️
-• Type `/help` if you get lost (I won't judge)
-
-🎮 **Pro tip:** I understand both geek speak (`ls -la`) and human speak (_"what files are there?"_)
-
-Let's make some server magic happen! What's your first wish? 🧞‍♂️
-    `.trim();
+_ps: i understand both \`ls\` and "show files" but really, does it matter?_`.trim();
   }
 
   createLoadingAnimation(stage: number = 0): string {

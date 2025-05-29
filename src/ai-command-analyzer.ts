@@ -27,7 +27,7 @@ export class AICommandAnalyzer {
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: config.openaiModelName,
         messages: [
           {
             role: 'system',

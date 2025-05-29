@@ -65,7 +65,7 @@ export class CommandParser {
     '/removeserver', '/status', '/cancel'
   ];
 
-  async parse(message: string): Promise<ParsedCommand> {
+  async parse(message: string, useAI: boolean = true): Promise<ParsedCommand> {
     const trimmed = message.trim();
     
     // Check if it's a system command
@@ -82,8 +82,8 @@ export class CommandParser {
       return { type: 'bash', command: bashCommand };
     }
 
-    // Try AI analysis first if available
-    if (this.aiAnalyzer.isAvailable()) {
+    // Try AI analysis first if available and enabled
+    if (useAI && this.aiAnalyzer.isAvailable()) {
       try {
         const aiSuggestion = await this.aiAnalyzer.analyzeIntent(trimmed);
         if (aiSuggestion && aiSuggestion.commands.length > 0) {

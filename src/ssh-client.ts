@@ -27,6 +27,9 @@ export class SimpleSSHClient {
 
       if (config.password) {
         connectionConfig.password = config.password;
+      } else if (config.privateKey) {
+        // Use the private key content directly
+        connectionConfig.privateKey = config.privateKey;
       } else if (config.privateKeyPath) {
         const fs = require('fs');
         connectionConfig.privateKey = fs.readFileSync(config.privateKeyPath);

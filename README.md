@@ -21,6 +21,9 @@ VibeSSH is your groovy SSH companion that speaks human, cracks jokes, and makes 
 - 🔮 **Natural Language** - No more memorizing commands (but we still love you, `ls -la`)
 - 🛡️ **Fort Knox Security** - Every command needs your blessing
 - 🚀 **Lightning Fast** - Zoom zoom, no lag, just vibes
+- ✨ **Auto-Connect** - Connects to your server on start (if you're into that)
+- 💫 **Smart Suggestions** - Shows you what to do next (AI optional)
+- 🌊 **Vibe Mode** - The bot doesn't really need you, but it tolerates your presence
 
 ---
 
@@ -52,6 +55,7 @@ SSH_PASSWORD=secret_sauce
 
 # Optional flavor enhancers
 OPENAI_API_KEY=sk-... # For extra AI spice 🌶️
+OPENAI_MODEL=gpt-4-turbo-preview # Choose your AI vibe
 ```
 
 ### 4️⃣ **Launch The Party**
