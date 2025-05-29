@@ -7,6 +7,7 @@ dotenv.config();
 
 export const config = {
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
+  openaiApiKey: process.env.OPENAI_API_KEY || '',
   mcpServersConfigPath: path.join(__dirname, '../config/mcp-servers.json'),
   defaultSSHConfig: {
     host: process.env.SSH_HOST || '',

@@ -47,11 +47,17 @@ npm install --save-dev jest @types/jest ts-jest
    - Supports both password and key-based authentication
 
 3. **Command Parser** (`src/command-parser.ts`)
-   - Natural language understanding for bash commands
-   - Pattern matching for common command intents
+   - AI-powered natural language understanding using OpenAI (when API key provided)
+   - Fallback to pattern matching for common command intents
    - Distinguishes between system commands and bash commands
+   - Provides multiple command suggestions with explanations
 
-4. **Configuration** (`src/config.ts`)
+4. **AI Command Analyzer** (`src/ai-command-analyzer.ts`)
+   - OpenAI integration for advanced natural language processing
+   - Analyzes user intent and suggests relevant bash commands
+   - Provides confidence scores and categorization
+
+5. **Configuration** (`src/config.ts`)
    - Environment variable management
    - MCP server configuration persistence
    - Default SSH server setup
@@ -83,6 +89,9 @@ Required environment variables:
 - `SSH_HOST`: Default SSH server host
 - `SSH_USERNAME`: SSH username
 - `SSH_PASSWORD` or `SSH_PRIVATE_KEY_PATH`: Authentication method
+
+Optional environment variables:
+- `OPENAI_API_KEY`: OpenAI API key for AI-powered command suggestions (enhances natural language understanding)
 
 ## Common Issues
 

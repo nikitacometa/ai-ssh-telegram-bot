@@ -73,6 +73,45 @@ export class SimpleSSHClient {
     });
   }
 
+  async executeStreamingCommand(
+    serverId: string, 
+    command: string, 
+    onData: (data: string) => void, 
+    onError: (error: string) => void,
+    onClose: (code: number) => void
+  ): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const conn = this.connections.get(serverId);
+      
+      if (!conn) {
+        reject(new Error(`No connection found for server: ${serverId}`));
+        return;
+      }
+
+      conn.exec(command, (err, stream) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        // Return the stream so it can be controlled externally
+        resolve(stream);
+
+        stream.on('close', (code: number) => {
+          onClose(code);
+        });
+
+        stream.on('data', (data: Buffer) => {
+          onData(data.toString());
+        });
+
+        stream.stderr.on('data', (data: Buffer) => {
+          onError(data.toString());
+        });
+      });
+    });
+  }
+
   async disconnect(serverId: string): Promise<void> {
     const conn = this.connections.get(serverId);
     if (conn) {

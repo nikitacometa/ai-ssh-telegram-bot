@@ -2,6 +2,19 @@ import TelegramBot from 'node-telegram-bot-api';
 
 export class UIHelpers {
   private typingTimers: Map<number, NodeJS.Timeout> = new Map();
+  
+  getRandomEmoji(): string {
+    const emojis = ['🎉', '🚀', '⚡', '🌟', '✨', '🎯', '🔥', '💫', '🎪', '🎭'];
+    return emojis[Math.floor(Math.random() * emojis.length)];
+  }
+  
+  getTimeOfDayGreeting(): string {
+    const hour = new Date().getHours();
+    if (hour < 12) return '☀️ Good morning';
+    if (hour < 17) return '🌤️ Good afternoon';
+    if (hour < 22) return '🌙 Good evening';
+    return '🌃 Working late?';
+  }
 
   async sendWithTyping(bot: TelegramBot, chatId: number, message: string, options?: any) {
     // Send typing indicator
@@ -43,19 +56,40 @@ export class UIHelpers {
     const filled = Math.round((progress / total) * 10);
     const empty = 10 - filled;
     
-    return `${'▓'.repeat(filled)}${'░'.repeat(empty)} ${percentage}%`;
+    // Different styles based on progress
+    if (percentage < 30) {
+      return `🔴${'▓'.repeat(filled)}${'░'.repeat(empty)} ${percentage}% 🐌`;
+    } else if (percentage < 60) {
+      return `🟡${'▓'.repeat(filled)}${'░'.repeat(empty)} ${percentage}% 🚶`;
+    } else if (percentage < 90) {
+      return `🟢${'▓'.repeat(filled)}${'░'.repeat(empty)} ${percentage}% 🏃`;
+    } else {
+      return `✨${'▓'.repeat(filled)}${'░'.repeat(empty)} ${percentage}% 🚀`;
+    }
   }
 
   getRandomLoadingMessage(): string {
     const messages = [
       '🔄 Processing your request...',
-      '⚡ Working on it...',
-      '🚀 Executing command...',
-      '💫 Almost there...',
-      '🔮 Making magic happen...',
-      '⏳ Just a moment...',
-      '🎯 On it!',
-      '🌟 Processing...'
+      '⚡ Working on it, chief!',
+      '🚀 Executing command at warp speed...',
+      '💫 Almost there, hold tight!',
+      '🔮 Making magic happen... *waves wand*',
+      '⏳ Just a sec, brewing some digital coffee...',
+      '🎯 On it like a bonnet!',
+      '🌟 Processing faster than light...',
+      '🎪 Juggling some bits and bytes...',
+      '🎨 Painting your results...',
+      '🎭 Performing command wizardry...',
+      '🎪 The hamsters are spinning the wheels...',
+      '🍕 Cooking up your results...',
+      '🎸 Rocking your command...',
+      '🦾 Flexing my digital muscles...',
+      '🎮 Loading your command... 99%...',
+      '🌈 Following the rainbow to your data...',
+      '🚁 Deploying command helicopters...',
+      '🎬 Action! Running your scene...',
+      '🏃‍♂️ Sprint mode activated!'
     ];
     
     return messages[Math.floor(Math.random() * messages.length)];
@@ -63,12 +97,15 @@ export class UIHelpers {
 
   getErrorMessage(error: any): string {
     const errorMessages: { [key: string]: string } = {
-      'ECONNREFUSED': '🔌 Connection refused. Is the server running?',
-      'ETIMEDOUT': '⏱️ Connection timed out. Server might be unreachable.',
-      'ENOTFOUND': '🔍 Server not found. Check the hostname.',
-      'Authentication failed': '🔐 Authentication failed. Check your credentials.',
-      'EHOSTUNREACH': '🌐 Host unreachable. Check network connection.',
-      'ECONNRESET': '🔄 Connection reset by server.',
+      'ECONNREFUSED': '🔌 Oops! Connection refused. Is the server taking a nap? 😴',
+      'ETIMEDOUT': '⏱️ Connection timed out... The server is playing hard to get! 🙈',
+      'ENOTFOUND': '🔍 Server not found! Did it go on vacation? 🏖️',
+      'Authentication failed': '🔐 Wrong password! The server said "You shall not pass!" 🧙‍♂️',
+      'EHOSTUNREACH': '🌐 Can\'t reach the host. Check if your internet is having a bad day! 📡',
+      'ECONNRESET': '🔄 Connection reset! The server just rage-quit on us! 😤',
+      'Permission denied': '🚫 Permission denied! You need the secret handshake! 🤝',
+      'No such file': '📁 404: File not found. It\'s hiding really well! 🕵️‍♂️',
+      'Command not found': '🤷 Command not found. Did you make a typo? We all do! 😊'
     };
 
     const errorString = error.toString();
@@ -79,16 +116,25 @@ export class UIHelpers {
       }
     }
     
-    return `❌ Error: ${error.message || errorString}`;
+    // Fallback with random funny messages
+    const fallbacks = [
+      `❌ Whoopsie! ${error.message || errorString}`,
+      `💥 Houston, we have a problem: ${error.message || errorString}`,
+      `🙊 Oh snap! ${error.message || errorString}`,
+      `🤖 Error detected, captain: ${error.message || errorString}`,
+      `🎪 The circus encountered: ${error.message || errorString}`
+    ];
+    
+    return fallbacks[Math.floor(Math.random() * fallbacks.length)];
   }
 
   createQuickCommands(): any {
     return {
       reply_markup: {
         keyboard: [
-          ['📁 List files', '💾 Disk space', '📊 System info'],
-          ['🔄 Running processes', '🌐 Network status', '📈 Memory usage'],
-          ['⚙️ Settings', '❓ Help', '🚪 Disconnect']
+          ['📁 Show Files', '💾 Check Space', '🖥️ System Stats'],
+          ['🏃‍♂️ What\'s Running?', '🌍 Network Check', '🧠 Memory Info'],
+          ['⚙️ Settings', '🆘 Need Help?', '👋 Bye Server']
         ],
         resize_keyboard: true,
         one_time_keyboard: false
@@ -111,14 +157,20 @@ export class UIHelpers {
   }
 
   formatServerInfo(server: any, isConnected: boolean): string {
+    const statusEmoji = isConnected ? '🟢' : '⚪';
+    const statusText = isConnected ? 'Online & Ready!' : 'Sleeping...';
+    const serverEmojis = ['🖥️', '💻', '🖲️', '⚡', '🔧'];
+    const randomServerEmoji = serverEmojis[Math.floor(Math.random() * serverEmojis.length)];
+    
     return `
-🖥️ **${server.name}**
-${isConnected ? '🟢 Connected' : '⚪ Disconnected'}
+${randomServerEmoji} **${server.name}**
+${statusEmoji} _${statusText}_
 
-📍 **Host:** \`${server.config.host}\`
-👤 **User:** \`${server.config.username}\`
+📍 **Address:** \`${server.config.host}\`
+👤 **Login:** \`${server.config.username}\`
 🔌 **Port:** \`${server.config.port || 22}\`
-🔐 **Auth:** ${server.config.password ? 'Password' : 'SSH Key'}
+🔐 **Security:** ${server.config.password ? '🔑 Password' : '🗝️ SSH Key'}
+${isConnected ? '\n⚡ _Ready for your commands!_' : '\n💤 _Click to wake up!_'}
     `.trim();
   }
 
@@ -132,34 +184,44 @@ ${isConnected ? '🟢 Connected' : '⚪ Disconnected'}
   }
 
   formatWelcomeMessage(userName?: string): string {
-    const greeting = userName ? `Hello ${userName}!` : 'Hello!';
+    const greeting = userName ? `Hey ${userName}!` : 'Hey there!';
+    const greetingEmojis = ['🎉', '🚀', '⚡', '🌟', '✨'];
+    const randomEmoji = greetingEmojis[Math.floor(Math.random() * greetingEmojis.length)];
     
     return `
-🚀 **${greeting} Welcome to SSH Terminal Bot!**
+${randomEmoji} **${greeting} Welcome to SSH Terminal Bot!**
 
-I'm your friendly SSH assistant that helps you manage remote servers with style! 
+I'm your **digital server whisperer** 🤖 Ready to make server management fun!
 
-✨ **What I can do:**
-• 🔐 Securely connect to your servers
-• 💬 Understand natural language commands
-• 🎯 Execute commands with confirmation
-• 📊 Show formatted outputs
-• 💾 Remember your command history
+🎯 **My Superpowers:**
+• 🔮 I speak human! Just tell me what you need
+• 🛡️ Fort Knox-level security (everything confirmed)
+• 🎨 Pretty outputs (no boring terminal walls)
+• 🧠 I remember everything (your commands, not your secrets)
+• ⚡ Lightning-fast execution
 
-🎮 **Quick Start:**
-1. Type a command like "show files" or "check disk space"
-2. Use the quick buttons below for common tasks
-3. Say /help anytime for guidance
+💡 **How to Boss Me Around:**
+• Say things like _"yo, show me the files"_ 
+• Press the magic buttons below ⬇️
+• Type `/help` if you get lost (I won't judge)
 
-Ready to connect to a server? Let's go! 🎉
+🎮 **Pro tip:** I understand both geek speak (`ls -la`) and human speak (_"what files are there?"_)
+
+Let's make some server magic happen! What's your first wish? 🧞‍♂️
     `.trim();
   }
 
   createLoadingAnimation(stage: number = 0): string {
     const animations = [
-      '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'
+      ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'],
+      ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'],
+      ['⚡', '⚡⚡', '⚡⚡⚡', '⚡⚡', '⚡'],
+      ['🎯', '🎯 ', '🎯  ', '🎯   ', '  🎯 ', '   🎯', '  🎯 ', ' 🎯  '],
+      ['▱▱▱', '▰▱▱', '▰▰▱', '▰▰▰', '▱▰▰', '▱▱▰', '▱▱▱'],
+      ['🚀    ', ' 🚀   ', '  🚀  ', '   🚀 ', '    🚀', '   🚀 ', '  🚀  ', ' 🚀   ']
     ];
     
-    return animations[stage % animations.length];
+    const animationSet = animations[Math.floor(stage / 10) % animations.length];
+    return animationSet[stage % animationSet.length];
   }
 }

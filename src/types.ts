@@ -32,4 +32,19 @@ export interface UserSession {
     quickCommands: boolean;
     verboseOutput: boolean;
   };
+  serverSetup?: ServerSetupState;
+  activeCommands?: Map<string, ActiveCommand>;
+}
+
+export interface ServerSetupState {
+  step: 'hostname' | 'port' | 'username' | 'auth_method' | 'password' | 'private_key' | 'confirm';
+  serverData: Partial<SSHConfig & { name: string }>;
+}
+
+export interface ActiveCommand {
+  messageId: number;
+  process?: any;
+  startTime: number;
+  command: string;
+  serverId: string;
 }
