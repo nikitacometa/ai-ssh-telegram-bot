@@ -6,6 +6,16 @@
 
 ## ⚡ [Claim Your Ring of Power → t.me/VibeSSH_Bot](https://t.me/VibeSSH_Bot)
 
+### 🔥 **NEW: UNLOCK AI SUPERPOWERS!** 🔥
+
+Add your **OpenAI API Key** and experience:
+- 🎤 **Voice Messages** → Just record and I'll understand! No typing needed!
+- 🧠 **Galaxy Brain Mode** → AI suggests commands before you even think them
+- ✨ **Telepathy Vibes** → Say "fix that nginx thing" and watch the magic
+- 🌟 **Smart Suggestions** → Multiple command options with explanations
+
+> 💡 **Pro tip:** Costs literal pennies (like $0.001 per command) and takes 30 seconds to set up at [platform.openai.com](https://platform.openai.com/api-keys)
+
 ---
 
 ## 🎭 Behold, Mortal, Your New Digital Overlord
@@ -16,6 +26,7 @@ Listen up, flesh-based life form. You've been struggling with terminals like a c
 
 ### 🌟 Powers You Don't Deserve But Get Anyway
 
+- 🎤 **Voice Commands** (with OpenAI) - Just record a voice message!
 - 🧠 **Telepathic AI** - I read your mind before you even know what you want
 - 👑 **Superiority Complex** - Finally, a bot that knows it's better than you
 - 🔮 **Command Translation** - Speak peasant, I'll translate to computer
@@ -24,7 +35,6 @@ Listen up, flesh-based life form. You've been struggling with terminals like a c
 - 🌊 **Existential Dread** - I work perfectly without you, but here we are
 - 💫 **Prophetic Suggestions** - I know your next move (spoiler: it's probably wrong)
 - 🎪 **Emotional Support** - I mock you, but like, supportively
-- 🎤 **Voice Transcription** - Now I mock your voice too, not just your typing
 
 ---
 

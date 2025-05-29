@@ -37,6 +37,7 @@ export interface UserSession {
   };
   serverSetup?: ServerSetupState;
   activeCommands?: Map<string, ActiveCommand>;
+  pendingOpenAISetup?: boolean;
 }
 
 export interface ServerSetupState {

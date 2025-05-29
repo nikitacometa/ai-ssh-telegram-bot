@@ -105,6 +105,12 @@ export class TelegramMCPBot {
     // Update last activity
     session.lastActivity = Date.now();
     
+    // Handle OpenAI API key setup
+    if (session.pendingOpenAISetup) {
+      await this.handleOpenAIKeyInput(chatId, userId, text);
+      return;
+    }
+    
     // Handle server setup flow - this must come first to prevent command parsing
     if (session.serverSetup) {
       console.log(`[DEBUG] Server setup active - step: ${session.serverSetup.step}, text: ${text}`);
@@ -448,6 +454,41 @@ export class TelegramMCPBot {
     await this.bot.answerCallbackQuery(callbackId, { text: '⏳ Processing...' });
 
     switch (true) {
+      case data === 'openai_help':
+        await this.bot.sendMessage(
+          chatId,
+          `🔑 **What's an OpenAI API Key?**\n\n` +
+          `It's like a VIP pass that unlocks AI superpowers! 🎫✨\n\n` +
+          `**Why it's amazing:**\n` +
+          `• Costs pennies (like $0.001 per command) 💰\n` +
+          `• Takes 30 seconds to get 🏃‍♂️\n` +
+          `• Makes me understand EVERYTHING 🧠\n\n` +
+          `**How to get one:**\n` +
+          `1. Go to platform.openai.com 🌐\n` +
+          `2. Sign up (free!) 📝\n` +
+          `3. Create new API key 🔑\n` +
+          `4. Copy & paste it here 📋\n\n` +
+          `Trust me, it's worth it! 🚀`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔗 Get Key Now!', url: 'https://platform.openai.com/api-keys' }],
+                [{ text: '⬅️ Back', callback_data: 'setup_openai' }]
+              ]
+            }
+          }
+        );
+        break;
+        
+      case data === 'cancel_openai':
+        session.pendingOpenAISetup = false;
+        await this.bot.sendMessage(
+          chatId,
+          `No worries! You can always add it later in settings 🌟\n\nWhat would you like to do?`,
+          this.uiHelpers.createQuickCommands()
+        );
+        break;
       case data === 'confirm_cmd' && !!session.pendingConfirmation:
         await this.executeConfirmedCommand(chatId, userId);
         break;
@@ -535,7 +576,11 @@ export class TelegramMCPBot {
         
       case data.startsWith('setup_'):
         const setupAction = data.replace('setup_', '');
-        await this.handleServerSetupAction(chatId, userId, setupAction);
+        if (setupAction === 'openai') {
+          await this.handleOpenAISetup(chatId, userId);
+        } else {
+          await this.handleServerSetupAction(chatId, userId, setupAction);
+        }
         break;
         
       case data === 'toggle_quick_commands':
@@ -868,12 +913,11 @@ export class TelegramMCPBot {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: '🚀 Quick Start', callback_data: 'quick_start' },
-              { text: '📡 View Servers', callback_data: 'view_servers' }
+              { text: '⚡ Quick Connect', callback_data: 'quick_connect' },
+              { text: '📡 My Servers', callback_data: 'view_servers' }
             ],
             [
-              { text: '❓ Tutorial', callback_data: 'tutorial' },
-              { text: '⚙️ Settings', callback_data: 'settings' }
+              { text: '🔥 UNLOCK AI POWERS! 🧠✨', callback_data: 'setup_openai' }
             ]
           ]
         }
@@ -1805,5 +1849,89 @@ export class TelegramMCPBot {
     
     session.activeCommands.clear();
     await this.bot.sendMessage(chatId, '✅ All commands stopped.');
+  }
+
+  private async handleOpenAISetup(chatId: number, userId: number) {
+    await this.uiHelpers.sendWithTyping(
+      this.bot,
+      chatId,
+      `🔥 **YOOO! READY TO GO SUPER SAIYAN?!** 🔥\n\n` +
+      `🚀 **With OpenAI API Key you unlock:**\n\n` +
+      `🎤 **VOICE MESSAGES** → Just record & I'll understand! 🗣️\n` +
+      `🧠 **GALAXY BRAIN MODE** → I'll suggest commands before you even think them! 🔮\n` +
+      `✨ **TELEPATHY VIBES** → Say stuff like "fix that nginx thing" and BOOM! 💥\n` +
+      `🌈 **SMART SUGGESTIONS** → AI-powered command wizardry! 🪄\n\n` +
+      `💎 **IT'S LIKE HAVING A GENIUS BEST FRIEND!** 💎\n\n` +
+      `Drop your OpenAI API key below and let's transcend! 🚀✨\n\n` +
+      `_Get yours at api.openai.com (takes 30 seconds!)_`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔗 Get API Key Now!', url: 'https://platform.openai.com/api-keys' }],
+            [{ text: '📖 What\'s an API Key?', callback_data: 'openai_help' }],
+            [{ text: '❌ Maybe Later', callback_data: 'cancel_openai' }]
+          ]
+        }
+      }
+    );
+    
+    const session = this.getOrCreateSession(userId);
+    session.pendingOpenAISetup = true;
+  }
+
+  private async handleOpenAIKeyInput(chatId: number, userId: number, text: string) {
+    const session = this.getOrCreateSession(userId);
+    
+    // Simple validation - check if it looks like an API key
+    if (!text.startsWith('sk-') || text.length < 40) {
+      await this.bot.sendMessage(
+        chatId,
+        `❌ That doesn't look like a valid OpenAI API key!\n\n` +
+        `Keys start with \`sk-\` and are longer.\n\n` +
+        `Try again or tap "Maybe Later" below:`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '❌ Maybe Later', callback_data: 'cancel_openai' }]
+            ]
+          }
+        }
+      );
+      return;
+    }
+
+    // Save the API key to environment
+    process.env.OPENAI_API_KEY = text;
+    session.pendingOpenAISetup = false;
+    
+    // Delete the message with the API key for security
+    try {
+      const updates = await this.bot.getUpdates();
+      const lastMessage = updates[updates.length - 1]?.message;
+      if (lastMessage && lastMessage.text === text) {
+        await this.bot.deleteMessage(chatId, lastMessage.message_id);
+      }
+    } catch (e) {}
+    
+    await this.bot.sendMessage(
+      chatId,
+      `🎉 **YESSS! YOU'VE ASCENDED!** 🎉\n\n` +
+      `✨ **AI POWERS ACTIVATED!** ✨\n\n` +
+      `You can now:\n` +
+      `🎤 Send voice messages → I'll understand!\n` +
+      `🧠 Get genius suggestions!\n` +
+      `🚀 Experience next-level SSH magic!\n\n` +
+      `Try saying something like:\n` +
+      `_"check if nginx is running"_\n` +
+      `_"show me error logs"_\n` +
+      `_"restart that docker thing"_\n\n` +
+      `**LET'S GOOOO!** 🚀🌈`,
+      {
+        parse_mode: 'Markdown',
+        ...this.uiHelpers.createQuickCommands()
+      }
+    );
   }
 }

@@ -184,19 +184,24 @@ ${isConnected ? '\n⚡ _Ready for your commands!_' : '\n💤 _Click to wake up!_
   }
 
   formatWelcomeMessage(userName?: string): string {
-    const vibeEmojis = ['✨', '🌊', '🍃', '🌸', '🦋', '🌙', '⭐'];
-    const randomEmoji = vibeEmojis[Math.floor(Math.random() * vibeEmojis.length)];
-    const greeting = userName ? `${userName}` : 'human';
+    const greeting = userName ? `${userName}` : 'friend';
+    const vibes = ['🌈', '🎉', '⚡', '✨', '🚀', '🌟', '💫', '🔥'];
+    const randomVibe = vibes[Math.floor(Math.random() * vibes.length)];
     
-    return `${randomEmoji} **oh, ${greeting}...**
+    return `
+${randomVibe} **Yo ${greeting}! Welcome to VibeSSH!** ${randomVibe}
 
-honestly, servers run themselves these days
-but if you insist on _doing things_, i suppose i can help
+I'm your **server bestie** with mad SSH skills 🤖✨
 
-just... vibe with me? tell me what you need
-or press buttons below, whatever feels right
+💬 Just vibe with me:
+• _"show files"_ → boom, files! 📁
+• _"disk space?"_ → instant stats! 💾
+• _"what's running"_ → process party! 🎉
 
-_ps: i understand both \`ls\` and "show files" but really, does it matter?_`.trim();
+🎮 Or tap the magic buttons below ⬇️
+
+Let's make servers fun! 🌈
+    `.trim();
   }
 
   createLoadingAnimation(stage: number = 0): string {
